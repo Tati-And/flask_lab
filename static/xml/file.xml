@@ -1,14 +1,84 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<?xml-stylesheet type="text/xsl" href="file.xslt" ?>
-<people>
-  <man id="1">
-    <name>John</name>
-    <age>30</age>
-    <work>Driver</work>
-  </man>
-  <man id="2">
-    <name>Lisa</name>
-    <age>20</age>
-    <work>Programmist</work>
-  </man>
-</people>
+{% extends "bootstrap/base.html" %}
+{% import "bootstrap/wtf.html" as wtf %}
+
+{% block title %}Lab 1 - Variant 4{% endblock %}
+
+{% block head %}
+    {{ super() }}
+    <!-- Подключаем скрипт Яндекс SmartCaptcha -->
+    <script src="https://smartcaptcha.yandexcloud.net/captcha.js" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="container" style="margin-top: 30px;">
+    <h2>Лабораторная работа №1 — Вариант 4</h2>
+    <p>Смешивание двух изображений и анализ распределения цветов</p>
+    <hr>
+    
+    <!-- Форма -->
+    <form method="POST" enctype="multipart/form-data">
+        {{ form.hidden_tag() }} <!-- Скрытые поля (CSRF и smart_token) -->
+        
+        <!-- БЛОК ВЫВОДА ОШИБОК ВАЛИДАЦИИ -->
+        {% if form.errors %}
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                {% for field_name, field_errors in form.errors|dictsort if field_errors %}
+                    {% for error in field_errors %}
+                        <li><b>{{ form[field_name].label.text }}:</b> {{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+                </ul>
+            </div>
+        {% endif %}
+        <!-- КОНЕЦ БЛОКА ОШИБОК -->
+
+        <div class="form-group">
+            {{ form.alpha.label }}
+            {{ form.alpha(class="form-control") }}
+        </div>
+        <div class="form-group">
+            {{ form.upload1.label }}
+            {{ form.upload1(class="form-control-file") }}
+        </div>
+        <div class="form-group">
+            {{ form.upload2.label }}
+            {{ form.upload2(class="form-control-file") }}
+        </div>
+
+        <!-- Блок Яндекс Капчи -->
+        <div class="form-group">
+            <div id="captcha-container" class="smart-captcha" data-sitekey="{{ captcha_key }}"></div>
+        </div>
+
+        <!-- Кнопка отправки -->
+        <button type="submit" class="btn btn-primary">Mix Images</button>
+    </form>
+
+    <hr>
+
+    {% if image_name %}
+        <h3>Результат смешивания:</h3>
+        <p><img src="{{ url_for('static', filename=image_name) }}" class="img-rounded" width="224" height="224"/></p>
+    {% endif %}
+
+    {% if plot_url %}
+        <h3>График распределения цветов (R, G, B):</h3>
+        <p><img src="data:image/png;base64,{{ plot_url }}" class="img-responsive"/></p>
+    {% endif %}
+</div>
+
+<!-- Скрипт, который перехватывает успешное прохождение капчи и кладет токен в форму -->
+<script>
+    window.onload = function() {
+        if (window.smartCaptcha) {
+            const widgetId = window.smartCaptcha.render('captcha-container', {
+                sitekey: '{{ captcha_key }}',
+                callback: function(token) {
+                    document.getElementById('smart_token').value = token;
+                }
+            });
+        }
+    };
+</script>
+{% endblock %}
