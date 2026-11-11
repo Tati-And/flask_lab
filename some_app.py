@@ -7,18 +7,36 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import requests 
-
-from flask import Flask, render_template, request, Response
+import hashlib
+import re
+import sqlite3
+import datetime
+from datetime import date
+from flask import Flask, render_template, request, Response, make_response
 from flask_wtf import FlaskForm
 from wtforms import SubmitField, FloatField, HiddenField
 from wtforms.validators import DataRequired, NumberRange, ValidationError
 from flask_wtf.file import FileField, FileAllowed, FileRequired
-from flask_bootstrap import Bootstrap
+from flask_bootstrap import Bootstrap5
 from werkzeug.utils import secure_filename
 import json
 import lxml.etree as ET
 
 app = Flask(__name__)
+
+def init_db():
+    conn = sqlite3.connect('uploads.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS files
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  filename TEXT,
+                  size INTEGER,
+                  upload_time TEXT)''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SECRET_KEY = 'secret_key_here'
 app.config['SECRET_KEY'] = SECRET_KEY
@@ -27,8 +45,8 @@ app.config['SECRET_KEY'] = SECRET_KEY
 app.config['YANDEX_CAPTCHA_CLIENT_KEY'] = 'ysc1_AJeBSoopTbBmuVfjI9i1XjOlp0KKGTJMr5o4csh8e8556fd9'
 app.config['YANDEX_CAPTCHA_SERVER_KEY'] = os.environ.get('YANDEX_CAPTCHA_SERVER_KEY', 'ВСТАВЬ_КЛЮЧ_СЮДА_ВРУЧНУЮ')
 
-bootstrap = Bootstrap(app)
-
+bootstrap = Bootstrap5(app)
+ 
 class BlendForm(FlaskForm):
     alpha = FloatField('Alpha (0 to 1)', validators=[DataRequired(), NumberRange(min=0, max=1)], default=0.5)
     upload1 = FileField('First Image', validators=[FileRequired(), FileAllowed(['jpg', 'png', 'jpeg'])])
@@ -101,6 +119,18 @@ def net():
         form.upload1.data.save(path1)
         form.upload2.data.save(path2)
 
+        # Сохраняем информацию о файлах в БД
+        conn = sqlite3.connect('uploads.db')
+        c = conn.cursor()
+        for f, path in [(form.upload1.data, path1), (form.upload2.data, path2)]:
+            size = os.path.getsize(path)
+            now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            c.execute("INSERT INTO files (filename, size, upload_time) VALUES (?, ?, ?)",
+                      (f.filename, size, now))
+        conn.commit()
+        conn.close()
+
+
         arr1, arr2, mixed_arr, res_img = process_images(path1, path2, alpha)
         
         res_path = os.path.join(static_dir, 'result.png')
@@ -132,6 +162,48 @@ def apixml():
     newhtml = transform(dom)
     strfile = ET.tostring(newhtml)
     return strfile
+
+# --- ЗАДАНИЕ НА ВЕРИФИКАЦИЮ ---
+VERIFY_TOKEN = 'TUSUR-ANDREEVA-20261108-2A3FC1D3'  
+
+def normalize_html(html: str) -> str:
+    lines = [line.strip() for line in html.split('\n')]
+    lines = [line for line in lines if line]
+    lines = [re.sub(r'\s+', ' ', line) for line in lines]
+    return '\n'.join(lines)
+
+@app.route('/verify')
+def verify():
+    today = date.today().isoformat()
+    html = f'''
+    <html>
+    <head><title>Verification</title></head>
+    <body>
+    <h1>Verification</h1>
+    <p>Token: {VERIFY_TOKEN}</p>
+    <p>Date: {today}</p>
+    </body>
+    </html>
+    '''
+    normalized = normalize_html(html)
+    body_hash = hashlib.sha256(normalized.encode('utf-8')).hexdigest()
+    response = make_response(html)
+    response.headers['X-Verify-Hash'] = body_hash
+    return response
+
+@app.route('/files')
+def show_files():
+    conn = sqlite3.connect('uploads.db')
+    c = conn.cursor()
+    c.execute("SELECT filename, size, upload_time FROM files ORDER BY id DESC")
+    files = c.fetchall()
+    conn.close()
+    
+    html = "<h1>Загруженные файлы</h1><table border='1'><tr><th>Имя файла</th><th>Размер (байт)</th><th>Дата и время</th></tr>"
+    for f in files:
+        html += f"<tr><td>{f[0]}</td><td>{f[1]}</td><td>{f[2]}</td></tr>"
+    html += "</table><br><a href='/'>На главную</a>"
+    return html
 
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000, debug=True)

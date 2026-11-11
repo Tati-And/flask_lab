@@ -1,11 +1,9 @@
-{% extends "bootstrap/base.html" %}
-{% import "bootstrap/wtf.html" as wtf %}
+{% extends "base.html" %}
 
-{% block title %}Lab 1 - Variant 4{% endblock %}
+{% block title %}Лабораторная работа №1 - Вариант 4{% endblock %}
 
 {% block head %}
     {{ super() }}
-    <!-- Подключаем скрипт Яндекс SmartCaptcha -->
     <script src="https://smartcaptcha.yandexcloud.net/captcha.js" defer></script>
 {% endblock %}
 
@@ -15,30 +13,46 @@
     <p>Смешивание двух изображений и анализ распределения цветов</p>
     <hr>
     
-    <!-- Отрисовываем форму вручную, чтобы вставить капчу -->
-    <form method="POST" enctype="multipart/form-data">
-        {{ form.hidden_tag() }} <!-- Скрытые поля (CSRF и smart_token) -->
-        
-        <div class="form-group">
-            {{ form.alpha.label }}
-            {{ form.alpha(class="form-control") }}
+    {% if form.errors %}
+        <div class="alert alert-danger">
+            <ul class="mb-0">
+            {% for field_name, field_errors in form.errors|dictsort if field_errors %}
+                {% for error in field_errors %}
+                    <li><b>{{ form[field_name].label.text }}:</b> {{ error }}</li>
+                {% endfor %}
+            {% endfor %}
+            </ul>
         </div>
-        <div class="form-group">
-            {{ form.upload1.label }}
-            {{ form.upload1(class="form-control-file") }}
-        </div>
-        <div class="form-group">
-            {{ form.upload2.label }}
-            {{ form.upload2(class="form-control-file") }}
-        </div>
+    {% endif %}
 
-        <!-- Блок Яндекс Капчи -->
-        <div class="form-group">
+    <form method="POST" enctype="multipart/form-data">
+        {{ form.hidden_tag() }}
+
+        <!-- Капча -->
+        <div class="mb-3">
             <div id="captcha-container" class="smart-captcha" data-sitekey="{{ captcha_key }}"></div>
         </div>
 
-        <!-- Кнопка отправки -->
-        <button type="submit" class="btn btn-primary">Mix Images</button>
+        <!-- Alpha -->
+        <div class="mb-3">
+            {{ form.alpha.label(class="form-label") }}
+            {{ form.alpha(class="form-control") }}
+        </div>
+
+        <!-- Первая картинка -->
+        <div class="mb-3">
+            {{ form.upload1.label(class="form-label") }}
+            {{ form.upload1(class="form-control") }}
+        </div>
+
+        <!-- Вторая картинка -->
+        <div class="mb-3">
+            {{ form.upload2.label(class="form-label") }}
+            {{ form.upload2(class="form-control") }}
+        </div>
+
+        <!-- Кнопка -->
+        <button type="submit" class="btn btn-primary mt-2">Смешать изображения</button>
     </form>
 
     <hr>
@@ -54,14 +68,13 @@
     {% endif %}
 </div>
 
-<!-- Скрипт, который перехватывает успешное прохождение капчи и кладет токен в форму -->
 <script>
     window.onload = function() {
         if (window.smartCaptcha) {
             const widgetId = window.smartCaptcha.render('captcha-container', {
                 sitekey: '{{ captcha_key }}',
                 callback: function(token) {
-                    document.getElementById('smart_token').value = token;
+                    document.getElementsByName('smart_token')[0].value = token;
                 }
             });
         }
