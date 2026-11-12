@@ -48,12 +48,12 @@ app.config['YANDEX_CAPTCHA_SERVER_KEY'] = os.environ.get('YANDEX_CAPTCHA_SERVER_
 bootstrap = Bootstrap5(app)
  
 class BlendForm(FlaskForm):
-    alpha = FloatField('Alpha (0 to 1)', validators=[DataRequired(), NumberRange(min=0, max=1)], default=0.5)
-    upload1 = FileField('First Image', validators=[FileRequired(), FileAllowed(['jpg', 'png', 'jpeg'])])
-    upload2 = FileField('Second Image', validators=[FileRequired(), FileAllowed(['jpg', 'png', 'jpeg'])])
+    alpha = FloatField('Коэффициент смешивания (0 to 1)', validators=[DataRequired(), NumberRange(min=0, max=1)], default=0.5)
+    upload1 = FileField('Первое изображение', validators=[FileRequired(), FileAllowed(['jpg', 'png', 'jpeg'])])
+    upload2 = FileField('Второе изображение', validators=[FileRequired(), FileAllowed(['jpg', 'png', 'jpeg'])])
     # Скрытое поле для токена капчи
-    smart_token = HiddenField()
-    submit = SubmitField('Mix Images')
+    smart_token = HiddenField('Проверка на робота')
+    submit = SubmitField('Смешать изображения')
 
     # Валидация капчи
     def validate_smart_token(self, field):
